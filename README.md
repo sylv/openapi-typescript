@@ -1,16 +1,48 @@
-# @ryanke/typescript-template
+# @ryanke/openapi-typescript
 
-A simple template I use for new projects.
+Generate Typescript interfaces from an [OpenAPI V3](https://swagger.io/specification/) schema. This is a complete hack because no existing generator can generate something usable with SWR. It is unlikely to work with other projects unless they are using json schemas and in general is fairly specific for my own use cases. You've been warned.
 
-# included
+## usage
 
-- [swc](https://github.com/swc-project/swc) for stupidly fast `pnpm test` and `pnpm watch` with support for decorator metadata.
-- [tsup](https://github.com/egoist/tsup) for stupidly fast `pnpm build`
-  - tsup doesn't support decorator metadata.
-- [eslint](https://eslint.org/) and [prettier](https://prettier.io/) (via [eslint-plugin-prettier](https://github.com/prettier/eslint-plugin-prettier)) for linting and formatting files
+- `pnpm install @ryanke/openapi-typescript`
+- `openapi-typescript ./spec.json ./src/generated.ts`
 
-# todo
+## output
 
-- Replace `tsup` with a tool that uses `swc` because `esbuild` that `tsup` uses doesn't support decorator metadata.
-  - Currently `tsup` is my go-to because it's convenient and generates `.d.ts` files.
-  - To use `swc`, we would have to find a `tsup`-like tool and that is easier said then done. 
+```ts
+// output would look something like this
+// included helper types are not shown in this example as they are the same no matter the input.
+export interface User {
+  id: string;
+  username: string;
+  permissions: number;
+  [k: string]: unknown;
+}
+
+export interface Invite {
+  id: string;
+  permissions: number;
+  createdAt: string;
+  expiresAt: string;
+  createdBy: User;
+  [k: string]: unknown;
+}
+
+export interface Routes {
+  "/users": User[];
+  "/invite/{id}": Invite;
+}
+
+// the output also includes some generic helper types
+type Response = ResponseFromRoute<`/invite/123`>; // Response is now of type "Invite"
+
+// you can use this to do relatively simple type safety for things like useSWR()
+// instead of manually defining the response type each time.
+const useRoute = <Route extends keyof SanitizedRoutes>(route: Route) => {
+  return useSWR<ResponseFromRoute<Route>>(route);
+};
+
+// this can now be used as you'd expect
+const { data, error } = useRoute("/invite/456");
+// data is now "Invite | undefined"
+```
